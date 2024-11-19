@@ -16,13 +16,13 @@ CUDA program surface level runtime:
 3. copy results from device back to host so you can display/use it somehow
 
 ## Device VS Host naming scheme
-`h_A` refers to host (CPU) for variable name “A”
+`h_A` refers to host (CPU) for variable name "A"
 
-`d_A` refers to device (GPU) for variable name “A” 
+`d_A` refers to device (GPU) for variable name "A"
 
-`__global__` is visible globally, meaning the CPU or  *host* can call these global functions. these don’t typically return anything but just do really fast operations to a variable you pass in. for example, I could multiply matrix A and B together, but I need to pass in a matrix of the needed size as C and change the values in C to the outputs of A * B matmul. these are your cuda kernels 
+`__global__` is visible globally, meaning the CPU or *host* can call these global functions. these don't typically return anything but just do really fast operations to a variable you pass in. for example, I could multiply matrix A and B together, but I need to pass in a matrix of the needed size as C and change the values in C to the outputs of A * B matmul. these are your cuda kernels 
 
-`__device__` is a very cool function I haven’t dived into yet but this is the small job that only the GPU can call. GPT-4 really liked my example of having a raw attention score matrix living on the `__global__` gpu cuda kernel and it needs to apply a scalar mask. instead of also doing this in the cuda kernel, we can have a `__device__` function defined in another .cu file or just exist as a function in the same file that does this SIMD scalar masking on any matrix we give it. this is the cuda equivalent of calling a function in a library instead of writing the function in your `main.py` file
+`__device__` is the small job that only the GPU can call
 
 `__host__` is only going to run on CPU. same as running a regular c/c++ script on CPU without cuda.
 
@@ -30,7 +30,7 @@ CUDA program surface level runtime:
 
 - `cudaMalloc` memory allocation on VRAM only (also called global memory)
 
-```
+```c++
     float *d_a, *d_b, *d_c;
 
     cudaMalloc(&d_a, N*N*sizeof(float));
@@ -43,6 +43,7 @@ CUDA program surface level runtime:
     - device to host ⇒ GPU to CPU
     - device to device ⇒ GPU location to different GPU location
     - **`cudaMemcpyHostToDevice`**, **`cudaMemcpyDeviceToHost`**, or **`cudaMemcpyDeviceToDevice`**
+
 - `cudaFree` will free memory on the device
 
 # `nvcc` compiler
@@ -51,15 +52,15 @@ CUDA program surface level runtime:
     - compiled to x86 binary
 
 - Device code
-    - compiled to PTX (parallel thread execution)
-
+    - compiled to **PTX (parallel thread execution)**
     - stable across multiple GPU generations
 
 - JIT (just-in-time)
-
     - PTX into native GPU instructions
-
     - allows for forward compatibility
+
+## 计算架构
+![](../assets/gpu-compute-arch.jpg)
 
 ## CUDA Hierarchy?
 1. Kernel executes in a thread
@@ -68,18 +69,22 @@ CUDA program surface level runtime:
 4. Kernel executed as a Grid of Blocks of Threads
 
 ### 4 technical terms:
+![](../assets/grid-block-thread.png)
+- grid: kernel在device上跑, 实际上启动一大堆线程, 一个kernel所启动的所有线程称为一个grid, 一个grid的所有线程是共享一大段内存, 即相同的全局内存 (显存)空间
+- block: 虽然一个grid里面的所有线程都是共享全局显存地址空间, 但是block之间是隔离的, 自己玩自己的, 并行执行, 每个block自己的共享内存 (Shared Memory), 里面的thread共享, 别的block的thread不能来访问
+- thread: block内部的threads怎么玩都可以, 可以同步, 也可以通过shared memory通信
+
+相关编程专业主语: 
 - `gridDim` ⇒ number of blocks in the grid
 - `blockIdx` ⇒ index of the block in the grid
 - `blockDim` ⇒ number of threads in a block
 - `threadIdx` ⇒ index of the thread in the block
 
-(more on this in video lectures)
-
 ## Threads
 - each thread has local memory (registers) and is private to the thread
 - if want to add `a = [1, 2, 3, ... N]` and `b = [2, 4, 6, ... N]` each thread would do a single add ⇒ `a[0] + b[0]` (thread 1); `a[1] + b[1]` (thread 2); etc...
 
-## Warps
+## Warps (线程束)
 ![](../assets/weft.png)
 - https://en.wikipedia.org/wiki/Warp_and_weft
 - The warp is the set of [yarns](https://en.wikipedia.org/wiki/Yarn) or other things stretched in place on a [loom](https://en.wikipedia.org/wiki/Loom) before the weft is introduced during the weaving process. It is regarded as the *longitudinal* set in a finished fabric with two or more sets of elements.
@@ -99,8 +104,9 @@ CUDA program surface level runtime:
 - contain a bunch of blocks. best example is grids handle batch processing, where each block in the grid is a batch element
 
 > why not just use only threads instead of blocks and threads? add to this given our knowledge of how warps group and execute a batch of 32 threads in lockstep
+
 > Logically, this shared memory is partitioned among the blocks. This means that a thread can communicate with the other threads in its block via the shared memory chunk. 
 
-- CUDA parallelism is scalable because their aren’t sequential block run-time dependencies.What I mean here is that you may not run Block 0 & Block 1, then Block 2 & 3… It may be Block 3 & 0, then Block 6 & 1. This means each of these mini “jobs” are solving a subset of the problem independent of the others. Like one piece of the puzzle. As long as all the pieces are assembled in the right place at the end, it works!
+- CUDA parallelism is scalable because their aren't sequential block run-time dependencies.What I mean here is that you may not run Block 0 & Block 1, then Block 2 & 3… It may be Block 3 & 0, then Block 6 & 1. This means each of these mini "jobs" are solving a subset of the problem independent of the others. Like one piece of the puzzle. As long as all the pieces are assembled in the right place at the end, it works!
 
 > [How do threads map onto CUDA cores?](https://stackoverflow.com/questions/10460742/how-do-cuda-blocks-warps-threads-map-onto-cuda-cores)

@@ -18,10 +18,9 @@ __global__ void whoami(void) {
     int id = block_offset + thread_offset; // global person id in the entire apartment complex
 
     printf("%04d | Block(%d %d %d) = %3d | Thread(%d %d %d) = %3d\n",
-        id,
-        blockIdx.x, blockIdx.y, blockIdx.z, block_id,
-        threadIdx.x, threadIdx.y, threadIdx.z, thread_offset);
-    // printf("blockIdx.x: %d, blockIdx.y: %d, blockIdx.z: %d, threadIdx.x: %d, threadIdx.y: %d, threadIdx.z: %d\n", blockIdx.x, blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z);
+           id,
+           blockIdx.x, blockIdx.y, blockIdx.z, block_id,
+           threadIdx.x, threadIdx.y, threadIdx.z, thread_offset);
 }
 
 int main(int argc, char **argv) {
